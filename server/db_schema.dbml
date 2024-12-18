@@ -1,0 +1,39 @@
+table users {
+  id UUID [pk]
+  name VARCHAR(255) [not null]
+  profile_image TEXT
+  email VARCHAR(255) [not null, unique]
+  password VARCHAR(255) [not null]
+
+  created_at TIMESTAMP(0) [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at TIMESTAMP(0) [not null, default: `CURRENT_TIMESTAMP`]
+  deleted_at TIMESTAMP(0)
+}
+
+Table chat_rooms {
+  id UUID [pk]
+  name VARCHAR(255) [not null]
+  users_limit INTEGER [not null]
+  users_ids UUID[] [not null]
+  peer_to_peer boolean [default: true]
+  latest_message_id BIGINT
+  
+  created_at TIMESTAMP(0) [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at TIMESTAMP(0) [not null, default: `CURRENT_TIMESTAMP`]
+  deleted_at TIMESTAMP(0)
+}
+
+Table chat_messages {
+  id SERIAL [pk, increment]
+  
+  chat_room_id UUID [not null]
+  created_by_id UUID [not null]
+  content TEXT [not null]
+  type VARCHAR(255) [not null]
+  
+  created_at TIMESTAMP(0) [not null, default: `CURRENT_TIMESTAMP`]
+  edited_at TIMESTAMP(0)
+  deleted_at TIMESTAMP(0)
+}
+Ref: chat_messages.chat_room_id > chat_rooms.id [delete: cascade, update: no action]
+Ref: chat_messages.created_by_id > users.id [delete: cascade, update: no action]

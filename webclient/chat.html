@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>WebSocket Chat</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="./enhanced_websocket.js"></script>
+        
+    </head>
+    <body class="dark:bg-gray-900 min-h-screen">
+        <div id="app" class="dark:bg-gray-900 dark:text-white min-h-screen p-4">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h1 class="text-2xl font-bold dark:text-white mb-1">WebSocket Chat</h1>
+                        <div id="userInfo" class="text-sm text-gray-600 dark:text-gray-300"></div>
+                    </div>
+                    <button id="logoutBtn" class="p-2 bg-red-500 text-white">Logout</button>
+                </div>
+
+                <div class="text-sm text-gray-500 dark:text-gray-400">User by default is a member of all his rooms and is listening to all messages from all rooms.</div>
+                <div class="h-4" ></div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">User can only send messages to rooms he is a member of.</div>
+                <div class="h-4" ></div>
+
+                <div class="mb-4">
+                    <label class="block mb-2">Target Room ID</label>
+                    <input type="text" id="roomIdInput"
+                        class="w-full p-2 border dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-2"
+                        placeholder="Enter Target Room ID">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Please enter the room id you want to send messages to.</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">You can receive messages from all you rooms without specifying the room id.</div>
+                    <div class="h-3" ></div>
+                    <label class="block mb-2">Message</label>
+                    <input type="text" id="messageInput"
+                        class="w-full p-2 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        placeholder="Enter message">
+                    <div class="flex mt-2">
+                        <button id="sendBtn"
+                            class="mt-2 w-full p-2 bg-green-500 text-white dark:bg-green-700">
+                            Send
+                        </button>
+                       
+                    </div>
+
+                </div>
+
+                <div id="chatContainer">
+                    <div id="chatMessages"
+                        class="border p-2 h-64 overflow-y-scroll dark:bg-gray-800 dark:border-gray-600">
+                        <!-- Chat messages will be displayed here -->
+                    </div>
+
+                    <div id="messageLog"
+                        class="border p-2 h-64 overflow-y-scroll dark:bg-gray-800 dark:border-gray-600 mt-4">
+                        <!-- Logs will be displayed here -->
+                    </div>
+
+                    <button id="clearLogBtn"
+                        class="mt-2 w-full p-2 bg-blue-500 text-white dark:bg-blue-700">
+                        Clear Log
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    <script>
+        const API_URL = '{{.API_URL}}';
+        const WS_URL = '{{.WS_URL}}';
+
+        class ChatApp {
+            constructor() {
+                this.socket = null;
+                this.currentUser = null;
+                this.token = localStorage.getItem('access_token');
+
+                // Check authentication
+                if (!this.token) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                this.initUI();
+                this.fetchCurrentUser();
+            }
+
+            async fetchCurrentUser() {
+                try {
+                    const response = await fetch(`${API_URL}/auth/me`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('😃 Failed to fetch user');
+                    }
+
+                    const user = await response.json();
+                    this.currentUser = user;
+                    this.updateUserInfo();
+                    this.connect();
+                    this.addUnloadEventListeners();
+                } catch (error) {
+                    console.log('Error fetching user', error);
+                    // this.logout();
+                }
+            }
+
+            updateUserInfo() {
+                const userInfoEl = document.getElementById('userInfo');
+                let avatar = `<img src="${this.getAvatarUrl(this.currentUser)}" 
+                    alt="user_avatar"  class="w-8 h-8 rounded-full inline-block mr-1" />`
+                if (this.currentUser.avatar) {
+                    avatar = `<img src="${this.currentUser.avatar}" 
+                        alt="user_avatar"  class="w-8 h-8 rounded-full inline-block mr-1" />`;
+                }
+                userInfoEl.innerHTML = `
+                    ${avatar}                    
+                    ${this.currentUser.name} (${this.currentUser.email})
+                `;
+            }
+
+            initUI() {
+                document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
+                document.getElementById('sendBtn').addEventListener('click', () => this.sendSocketMessage());
+
+                document.getElementById('clearLogBtn').addEventListener('click', () => {
+                    document.getElementById('messageLog').innerHTML = '';
+                });
+
+                // Load saved room ID
+                const savedRoomId = localStorage.getItem('roomId') || '';
+                document.getElementById('roomIdInput').value = savedRoomId;
+                document.getElementById('roomIdInput').addEventListener('change', (e) => {
+                    localStorage.setItem('roomId', e.target.value);
+                });
+
+                document.getElementById('messageInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.sendSocketMessage();
+                });
+            }
+
+            connect() {
+                this.socket = new EnhancedWebSocket(`${WS_URL}?token=${this.token}`);
+                
+                this.socket.onopen = () => {
+                    this.log('Connected to WebSocket server');
+                };
+
+                this.socket.onmessage = (event) => {
+                    console.log(`Received Message: ${event.data}`);
+                    this.log(`Received message`, 'receive');
+                    this.displayChatMsg(`${event.data}`);
+                };
+
+                this.socket.onclose = () => {
+                    this.log('Disconnected. Reconnecting...', 'error');
+                    setTimeout(() => this.connect(), 3000);
+                };
+            }
+
+            addUnloadEventListeners() {
+                console.log('Adding unload event listeners');
+                window.addEventListener('beforeunload', this.closeWebSocket.bind(this));
+                window.addEventListener('unload', this.closeWebSocket.bind(this));
+            }
+
+            closeWebSocket() {
+                if (this.socket) {
+                    this.socket.close(1000, 'Closing connection gracefully');
+                    console.log('WebSocket connection closed gracefully');
+                }
+            }
+
+            // Additional methods to handle incoming messages and logs
+            displayChatMsg(eventData) {
+                const msgEl = document.getElementById('chatMessages');
+                const messageEl = document.createElement('div');
+
+                const payload = JSON.parse(eventData);
+                const payloadData = payload.data;
+                const sentUser = payloadData.sent_by;
+                const roomId = payloadData.room_id;
+                const formattedDate24h = new Date(payloadData.sent_at).toLocaleString('en-US', {
+                    hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false
+                });
+                
+                // display message content, date sender name and avatar
+                // put vertical spacing between content and other elements
+                messageEl.innerHTML = `
+                    <div class="flex items-center">
+                        <img src="${this.getAvatarUrl(sentUser)}" 
+                            alt="user_avatar"  class="w-8 h-8 rounded-full inline-block mr-1" />
+                        <div>
+                            <span class="font-bold">${sentUser.name + `${payloadData.my_message ? ' (you)' : ''}`}</span>
+                            <span class="text-gray-500 dark:text-gray-400">${formattedDate24h}</span>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Room ID: ${roomId}</div>
+                            <div class="bg-gray-200 dark:bg-gray-700 p-2 ms-0 rounded-lg inline-block mt-1">
+                                <span class="text-gray-800 dark:text-gray-300">${payloadData.content}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;                
+                // if the message is sent by the current user, set the content background to indigo
+                if (payloadData.my_message) {
+                    messageEl.querySelector('.bg-gray-200').classList.add('bg-indigo-200', 'dark:bg-indigo-700');
+                }
+                messageEl.classList.add('my-3');
+                messageEl.classList.add('mb-1');
+                messageEl.classList.add('text-green-600', 'dark:text-green-400');
+                
+                msgEl.appendChild(messageEl);
+                msgEl.scrollTop = msgEl.scrollHeight;
+            }
+
+            getAvatarUrl(user) {
+                return user.profile_image ? user.profile_image : `https://api.dicebear.com/9.x/pixel-art/svg?seed=${user.email}`;
+            }
+
+            sendSocketMessage() {
+                const roomIdInput = document.getElementById('roomIdInput');
+                const messageInput = document.getElementById('messageInput');
+                
+                const roomId = roomIdInput.value.trim();
+                const message = messageInput.value.trim();
+                
+                if (!roomId || !message) {
+                    alert('Please enter a room ID and message. Make sure you are a member of the room.');
+                    return;
+                }
+
+                messageInput.value = '';
+                
+                try {
+                    this.socket.send(JSON.stringify({ 
+                        event: "message",
+                        data: { 
+                            room_id: roomId,
+                            content: message 
+                        }
+                    }));
+                } catch (error) {
+                    messageInput.value = message;
+                    this.log(`Send error: ${error}`, 'error');
+                }
+            }
+
+            
+            // For sending messages via HTTP
+            /*
+            <div class="flex mt-2">
+                <button id="sendBtn"
+                    class="mt-2 w-full p-2 bg-green-500 text-white dark:bg-green-700">
+                    Send
+                </button>
+                <div class="w-4"></div>
+                <button id="sendABtn"
+                    class="mt-2 w-full p-2 bg-blue-500 text-white dark:bg-blue-700">
+                    Sync Send
+                </button>
+            </div>
+
+            sendMessage() {
+                const roomIdInput = document.getElementById('roomIdInput');
+                const messageInput = document.getElementById('messageInput');
+                
+                const roomId = roomIdInput.value.trim();
+                const message = messageInput.value.trim();
+                
+                if (!roomId || !message) return;
+                
+                messageInput.value = '';
+
+                fetch(`${API_URL}/chat/send-message-sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.token}`
+                    },
+                    body: JSON.stringify({ 
+                        room_id: roomId,
+                        content: message 
+                    })
+                }).then(response => {
+                    if (response.ok) {
+                        this.log(`Sync Sent to Room ${roomId}: ${message}`, 'send');
+                    } else {
+                        response.text().then(data => { this.log(`Failed to send due to ${data}`, 'error'); });
+                    }
+                }).catch(error => {
+                    this.log(`Sync Send error: ${error}`, 'error');
+                    messageInput.value = message;
+                });
+            }
+            */
+
+            log(message, type = 'info') {
+                const logEl = document.getElementById('messageLog');
+                const messageEl = document.createElement('div');
+                const currentDate = new Date().toLocaleString('en-US', {
+                    hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false
+                });
+                
+                messageEl.textContent = `[${currentDate}] ${message}`;
+                messageEl.classList.add('mb-1');
+                
+                switch(type) {
+                    case 'send': 
+                        messageEl.classList.add('text-blue-600', 'dark:text-blue-400');
+                        break;
+                    case 'receive': 
+                        messageEl.classList.add('text-pink-600', 'dark:text-pink-400');
+                        break;
+                    case 'error': 
+                        messageEl.classList.add('text-red-600', 'dark:text-red-400');
+                        break;
+                }
+
+                logEl.appendChild(messageEl);
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+
+            logout() {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('roomId');
+                window.location.href = 'login.html';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => new ChatApp());
+    </script>
+    </body>
+</html>
