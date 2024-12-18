@@ -11,9 +11,10 @@ import (
 
 func DiscoverUsers(c *fiber.Ctx, u *User) (*PaginatedData[User], error) {
 	tx := DB().Where("id != ?", u.ID)
+	// get users that we do not have any private channel with
 	o, err := Paginate(c, User{}, tx, func(tx *gorm.DB) *gorm.DB {
-		// return tx.Order("RANDOM()")
-		return tx.Order("name ASC")
+		return tx.Order("RANDOM()")
+		// return tx.Order("name ASC")
 	})
 	if err != nil {
 		return nil, err

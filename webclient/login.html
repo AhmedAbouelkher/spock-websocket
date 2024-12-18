@@ -69,7 +69,8 @@
                     localStorage.setItem('access_token', data.access_token);
                     
                     // Redirect to chat page
-                    window.location.href = 'chat.html';
+                    // window.location.href = 'chat.html';
+                    window.location.href = 'home.html';
                 } else {
                     errorMessage.textContent = data.message || 'Login failed';
                 }
@@ -81,7 +82,8 @@
         window.addEventListener('load', () => {
             const token = localStorage.getItem('access_token');
             if (token) {
-                window.location.href = 'chat.html';
+                // window.location.href = 'chat.html';
+                window.location.href = 'home.html';
             }
         });
     </script>

@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Chat Home</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="./enhanced_websocket.js"></script>
+    </head>
+    <body class="dark:bg-gray-900 min-h-screen">
+        <div id="app" class="flex h-screen bg-gray-100 dark:bg-gray-900">
+            <!-- Sidebar -->
+            <div
+                class="w-1/4 min-w-[300px] max-w-[25%] h-screen border-r dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col">
+                <!-- User Profile Header -->
+                <div
+                    class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                    <div class="flex items-center">
+                        <img id="currentUserAvatar" alt="avatar"
+                            class="w-10 h-10 rounded-full mr-3">
+                        <div>
+                            <span id="currentUserName"
+                                class="font-semibold dark:text-white block"></span>
+                            <span id="currentUserEmail"
+                                class="text-sm text-gray-500 dark:text-gray-400"></span>
+                        </div>
+                    </div>
+                    <button id="logoutBtn"
+                        class="p-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5"
+                            viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
+                <!-- Discover Users -->
+                <div class="p-2 border-b dark:border-gray-700">
+                    <button id="discoverUsersBtn"
+                        class="w-full p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                            class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="16"></line>
+                            <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                        Discover Users
+                    </button>
+                </div>
+                <!-- Rooms List -->
+                <div id="roomsList" class="flex-1 overflow-y-auto">
+                    <!-- Rooms will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <!-- Chat Area -->
+            <div class="flex-1 flex flex-col h-screen">
+                <!-- Empty State -->
+                <div id="emptyChatState"
+                    class="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                    <div class="text-center text-gray-500 dark:text-gray-400">
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                            class="w-16 h-16 mx-auto mb-4" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        <p>Select a chat to start messaging</p>
+                    </div>
+                </div>
+
+                <!-- Chat Content -->
+                <div id="chatContent" class="hidden h-screen flex flex-col">
+                    <!-- Chat Header -->
+                    <div id="chatHeader"
+                        class="p-4 border-b dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center">
+                        <img id="otherUserAvatar" alt="avatar"
+                            class="w-10 h-10 rounded-full mr-3">
+                        <div>
+                            <span id="otherUserName"
+                                class="font-semibold dark:text-white block"></span>
+                            <span id="otherUserEmail"
+                                class="text-sm text-gray-500 dark:text-gray-400"></span>
+                        </div>
+                    </div>
+
+                    <!-- Messages Area -->
+                    <div id="messagesContainer"
+                        class="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
+                        <!-- Messages will be dynamically inserted here -->
+                    </div>
+
+                    <!-- Message Input -->
+                    <div
+                        class="p-4 bg-white dark:bg-gray-800 border-t dark:border-gray-700">
+                        <div class="flex items-center">
+                            <textarea
+                                id="messageInput"
+                                placeholder="Type a message..."
+                                class="flex-1 p-2 border rounded-lg mr-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none"
+                                rows="1"></textarea>
+                            <button id="sendMessageBtn"
+                                class="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600">
+                                <svg xmlns="http://www.w3.org/2000/svg"
+                                    class="w-5 h-5" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon
+                                        points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Dialog - Hidden by default -->
+            <div id="usersDialog"
+                class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+                <div
+                    class="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md mx-4">
+                    <div
+                        class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                        <h2
+                            class="text-lg font-semibold dark:text-white">Discover
+                            Users</h2>
+                        <button id="closeDialogBtn"
+                            class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round"
+                                    stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="usersList"
+                        class="max-h-[60vh] overflow-y-auto p-4">
+                        <!-- Users will be listed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        const API_URL = '{{.API_URL}}';
+        const WS_URL = '{{.WS_URL}}';
+
+        class ChatApp {
+            constructor() {
+                this.socket = null;
+                this.currentUser = null;
+                this.currentRoom = null;
+                this.token = localStorage.getItem('access_token');
+
+                if (!this.token) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                this.initElements();
+                this.initEventListeners();
+                this.fetchCurrentUser();
+                this.initDiscoverUsers();
+            }
+
+            initElements() {
+                // Current user elements
+                this.currentUserAvatar = document.getElementById('currentUserAvatar');
+                this.currentUserName = document.getElementById('currentUserName');
+                this.logoutBtn = document.getElementById('logoutBtn');
+                
+                // Rooms elements
+                this.roomsList = document.getElementById('roomsList');
+                
+                // Chat elements
+                this.emptyChatState = document.getElementById('emptyChatState');
+                this.chatContent = document.getElementById('chatContent');
+                this.chatHeader = document.getElementById('chatHeader');
+                this.otherUserAvatar = document.getElementById('otherUserAvatar');
+                this.otherUserName = document.getElementById('otherUserName');
+                this.messagesContainer = document.getElementById('messagesContainer');
+                this.messageInput = document.getElementById('messageInput');
+                this.sendMessageBtn = document.getElementById('sendMessageBtn');
+            }
+
+            initEventListeners() {
+                this.logoutBtn.addEventListener('click', () => this.logout());
+                this.sendMessageBtn.addEventListener('click', () => this.sendMessage());
+                this.messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+                this.messageInput.addEventListener('input', () => {
+                    const originalScrollHeight = this.messageInput.scrollHeight;
+                    this.messageInput.style.height = 'auto';
+                    const newRows = Math.min(5, Math.floor((originalScrollHeight - 8) / 20));
+                    this.messageInput.rows = Math.max(1, newRows);
+                });
+            }
+
+            async fetchCurrentUser() {
+                try {
+                    const response = await fetch(`${API_URL}/auth/me`, {
+                        headers: { 'Authorization': `Bearer ${this.token}` }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch user');
+                    }
+
+                    this.currentUser = await response.json();
+                    this.updateUserInfo();
+                    this.fetchRooms();
+                    this.connectWebSocket();
+                } catch (error) {
+                    console.error('Error fetching user:', error);
+                }
+            }
+
+            updateUserInfo() {
+                this.currentUserAvatar.src = this.getAvatarUrl(this.currentUser);
+                this.currentUserName.textContent = this.currentUser.name;
+                document.getElementById('currentUserEmail').textContent = this.currentUser.email;
+            }
+
+            initDiscoverUsers() {
+                const dialog = document.getElementById('usersDialog');
+                const closeBtn = document.getElementById('closeDialogBtn');
+                const discoverBtn = document.getElementById('discoverUsersBtn');
+
+                discoverBtn.addEventListener('click', () => {
+                    dialog.classList.remove('hidden');
+                    this.fetchUsers();
+                });
+
+                closeBtn.addEventListener('click', () => {
+                    dialog.classList.add('hidden');
+                });
+
+                dialog.addEventListener('click', (e) => {
+                    if (e.target === dialog) dialog.classList.add('hidden');
+                });
+            }
+
+            async fetchUsers() {
+                try {
+                    const response = await fetch(`${API_URL}/chat/discover-users?limit=99`, {
+                        headers: { 'Authorization': `Bearer ${this.token}` }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to fetch users');
+                    
+                    const data = await response.json();
+                    this.renderUsers(data.data);
+                } catch (error) {
+                    console.error('Error fetching users:', error);
+                }
+            }
+
+            renderUsers(users) {
+                const usersList = document.getElementById('usersList');
+                usersList.innerHTML = '';
+
+                if(users.length === 0) {
+                    usersList.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400">No users found</p>';
+                }
+                
+                users.forEach(user => {
+                    const userElement = document.createElement('div');
+                    userElement.className = 'flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg mb-2';
+                    userElement.innerHTML = `
+                        <div class="flex items-center">
+                            <img src="${this.getAvatarUrl(user)}" 
+                                alt="avatar" 
+                                class="w-10 h-10 rounded-full mr-3">
+                            <div>
+                                <div class="font-semibold dark:text-white">${user.name}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">${user.email}</div>
+                            </div>
+                        </div>
+                        <button class="sendMessageBtn px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                            data-user-id="${user.id}">
+                            Message
+                        </button>
+                    `;
+                    usersList.appendChild(userElement);
+                });
+
+                // Add click handlers for message buttons
+                usersList.querySelectorAll('.sendMessageBtn').forEach(btn => {
+                    btn.addEventListener('click', () => this.initiateChat(btn.dataset.userId));
+                });
+            }
+
+            async initiateChat(otherUserId) {
+                const message = prompt('Enter your message:');
+                if (!message?.trim()) return;
+
+                const messageData = {
+                    event: "message",
+                    data: {
+                        other_user_id: otherUserId,
+                        content: message
+                    }
+                };
+
+                this.socket.send(JSON.stringify(messageData));
+                document.getElementById('usersDialog').classList.add('hidden');
+            }
+
+            async fetchRooms() {                
+                try {
+                    const response = await fetch(`${API_URL}/chat/rooms?limit=99`, {
+                        headers: { 'Authorization': `Bearer ${this.token}` }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to fetch rooms');
+                    
+                    const data = await response.json();
+                    this.renderRooms(data.data);
+                } catch (error) {
+                    console.error('Error fetching rooms:', error);
+                }
+            }
+
+            renderRooms(rooms) {
+                this.roomsList.innerHTML = '';
+                rooms.forEach(room => {
+                    const roomElement = document.createElement('div');
+                    roomElement.className = `p-4 border-b dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                        this.currentRoom?.room_id === room.room_id ? 'bg-blue-100 dark:bg-blue-900 border-l-4 border-l-blue-500' : ''
+                    }`;
+
+                    if (room.type === 'private') {
+                        roomElement.innerHTML = `
+                            <div class="flex items-center">
+                                <img src="${this.getAvatarUrl(room.other_user)}" 
+                                    alt="avatar" 
+                                    class="w-12 h-12 rounded-full mr-3">
+                                <div class="flex-1">
+                                    <div class="font-semibold dark:text-white">
+                                        ${room.other_user.name}
+                                    </div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                                        ${room.other_user.email}
+                                    </div>
+                                    ${room.last_message ? `
+                                        <div class="text-sm text-gray-600 dark:text-gray-400 truncate mt-1 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
+                                            ${room.last_message.my_message ? 'You' : room.last_message.sent_by.name}: ${room.last_message.content}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        roomElement.innerHTML = `
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 rounded-full mr-3 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                    <span class="text-lg font-semibold text-white dark:text-white">${room.name.charAt(0)}</span>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="font-semibold dark:text-white">
+                                        ${room.name}
+                                    </div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                                        ${room.number_of_users} members
+                                    </div>
+                                    ${room.last_message ? `
+                                        <div class="text-sm text-gray-600 dark:text-gray-400 truncate mt-1 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
+                                            ${room.last_message.sent_by.name}: ${room.last_message.content}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    // Update renderRooms to add data attribute
+                    roomElement.querySelector('.flex').setAttribute('data-room-id', room.room_id);
+                    roomElement.addEventListener('click', () => this.selectRoom(room));
+                    this.roomsList.appendChild(roomElement);
+                });
+            }
+
+            async selectRoom(room) {
+                if (this.currentRoom?.room_id === room.room_id) {
+                    this.scrollToBottom();
+                    return;
+                }
+
+                this.currentRoom = room;
+                this.emptyChatState.classList.add('hidden');
+                this.chatContent.classList.remove('hidden');
+
+                // Update rooms list highlighting without refetching
+                document.querySelectorAll('#roomsList > div').forEach(roomEl => {
+                    roomEl.classList.remove('bg-blue-100', 'dark:bg-blue-900', 'border-l-4', 'border-l-blue-500');
+                    if (roomEl.querySelector(`[data-room-id="${room.room_id}"]`)) {
+                        roomEl.classList.add('bg-blue-100', 'dark:bg-blue-900', 'border-l-4', 'border-l-blue-500');
+                    }
+                });
+                
+                const header = document.getElementById('chatHeader');
+                if (room.type === 'private') {
+                    header.innerHTML = `
+                        <img src="${this.getAvatarUrl(room.other_user)}" alt="avatar" class="w-10 h-10 rounded-full mr-3">
+                        <div>
+                            <span class="font-semibold dark:text-white block">${room.other_user.name}</span>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">${room.other_user.email}</span>
+                        </div>
+                    `;
+                } else {
+                    header.innerHTML = `
+                        <div class="w-12 h-12 rounded-full mr-3 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                            <span class="text-lg font-semibold text-white dark:text-white">${room.name.charAt(0)}</span>
+                        </div>
+                        <div>
+                            <span class="font-semibold dark:text-white block">${room.name}</span>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">${room.number_of_users} members</span>
+                        </div>
+                    `;
+                }
+                
+                
+                await this.fetchRoomMessages(room.room_id);
+                this.messageInput.focus();
+            }
+
+            async fetchRoomMessages(roomId) {
+                try {
+                    const response = await fetch(`${API_URL}/chat/room-messages/${roomId}?limit=99`, {
+                        headers: { 'Authorization': `Bearer ${this.token}` }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to fetch messages');
+                    
+                    const data = await response.json();
+                    // Sort messages by sent_at in ascending order
+                    const sortedMessages = data.data.sort((a, b) => 
+                        new Date(a.sent_at) - new Date(b.sent_at)
+                    );
+                    this.renderMessages(sortedMessages);
+                } catch (error) {
+                    console.error('Error fetching messages:', error);
+                }
+            }
+
+            formatMessageDate(sentAt) {
+                const messageDate = new Date(sentAt);
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+                
+                if (messageDate.toDateString() === today.toDateString()) {
+                    return messageDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                } else if (messageDate.toDateString() === yesterday.toDateString()) {
+                    return 'Yesterday';
+                } else {
+                    return messageDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                }
+            }
+
+            renderMessages(messages) {
+                this.messagesContainer.innerHTML = '';
+                messages.forEach(message => {
+                    const messageElement = document.createElement('div');
+                    messageElement.className = `flex ${message.my_message ? 'justify-end' : 'justify-start'} mb-4`;
+                    
+                    if (!message.my_message) {
+                        messageElement.innerHTML = `
+                            <div class="flex items-start max-w-[80%]">
+                                <img src="${this.getAvatarUrl(message.sent_by)}" 
+                                    alt="avatar" class="w-8 h-8 rounded-full mr-2 mt-1">
+                                <div class="flex-1 p-3 rounded-lg bg-white dark:bg-gray-800 dark:text-white">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">${message.sent_by.name}</div>
+                                    <div class="text-sm font-semibold">${message.content}</div>
+                                    <div class="text-xs mt-1 opacity-70 text-right">
+                                        ${this.formatMessageDate(message.sent_at)}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        messageElement.innerHTML = `
+                            <div class="max-w-[80%] p-3 rounded-lg bg-blue-500 text-white">
+                                <div class="text-sm font-semibold">${message.content}</div>
+                                <div class="text-xs mt-1 opacity-70 text-right">
+                                    ${this.formatMessageDate(message.sent_at)}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    this.messagesContainer.appendChild(messageElement);
+                });
+                this.scrollToBottom();
+            }
+            
+            connectWebSocket() {
+                this.socket = new EnhancedWebSocket(`${WS_URL}?token=${this.token}`);
+                
+                this.socket.onmessage = (event) => {
+                    const message = JSON.parse(event.data);
+                    const data = message.data;
+
+                    switch (message.type) {
+                        case "new_room":
+                            this.fetchRooms();
+                            break;
+                        
+                        case "message":
+                            if (this.currentRoom && data.room_id === this.currentRoom.room_id) {
+                                this.appendMessage(data);
+                            }
+                            const roomElement = document.querySelector(`[data-room-id="${data.room_id}"]`);
+                            if (roomElement) {
+                                const lastMessageDiv = roomElement.querySelector('.text-sm.text-gray-600');
+                                if (lastMessageDiv) {
+                                    const senderName = data.my_message ? 'You' : data.sent_by.name;
+                                    lastMessageDiv.textContent = `${senderName}: ${data.content}`;
+                                }
+                            }
+                            break;
+                    
+                        default:
+                            break;
+                    }                    
+                };
+
+                this.socket.onclose = () => {
+                    setTimeout(() => this.connectWebSocket(), 3000);
+                };
+            }
+
+            appendMessage(message) {
+                const messageElement = document.createElement('div');
+                messageElement.className = `flex ${message.my_message ? 'justify-end' : 'justify-start'} mb-4`;
+                
+                if (!message.my_message) {
+                    messageElement.innerHTML = `
+                        <div class="flex items-start">
+                            <img src="${this.getAvatarUrl(message.sent_by)}" 
+                                alt="avatar" class="w-8 h-8 rounded-full mr-2 mt-1">
+                            <div class="max-w-[80%] p-3 rounded-lg bg-white dark:bg-gray-800 dark:text-white">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">${message.sent_by.name}</div>
+                                <div class="text-sm font-semibold">${message.content}</div>
+                                <div class="text-xs mt-1 opacity-70 text-right">
+                                    ${this.formatMessageDate(message.sent_at)}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    messageElement.innerHTML = `
+                        <div class="max-w-[80%] p-3 rounded-lg bg-blue-500 text-white">
+                            <div class="text-sm font-semibold">${message.content}</div>
+                            <div class="text-xs mt-1 opacity-70 text-right">
+                                ${this.formatMessageDate(message.sent_at)}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                this.messagesContainer.appendChild(messageElement);
+                this.scrollToBottom();
+            }
+
+            sendMessage() {
+                const message = this.messageInput.value.trim();
+                if (!message || !this.currentRoom) return;
+
+                const messageData = {
+                    event: "message",
+                    data: {
+                        room_id: this.currentRoom.room_id,
+                        content: message
+                    }
+                };
+
+                this.socket.send(JSON.stringify(messageData));
+                this.messageInput.value = '';
+                this.messageInput.style.height = 'auto';
+                this.messageInput.rows = 1;
+            }
+
+            scrollToBottom() {
+                this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+            }
+
+            getAvatarUrl(user) {
+                return user.profile_image_icon || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${user.email}`;
+            }
+
+            logout() {
+                if (confirm('Are you sure you want to logout?')) {
+                    localStorage.removeItem('access_token');
+                    window.location.href = 'login.html';
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => new ChatApp());
+    </script>
+    </body>
+</html>

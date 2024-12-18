@@ -1,16 +1,16 @@
 # Spock Websocket
 
-a simple websocket server that can be used to send messages to clients in real time. The project consists of a websocket server written in Go, a web client written in HTML, CSS, and Javascript, and a mobile app written in Flutter.
+A simple websocket server that can be used to send messages to clients in real time. The project consists of a websocket server written in Go, a web client written in HTML, CSS, and Javascript, and a mobile app written in Flutter.
 
 Web Client:
-![web clients screenshot](./demos/web_clients_screenshot.png)
 
-![web client demo](./demos/web_clients_demo_800px.gif)
+![web client demo](./demos/web_client_demo.gif)
 
 > [!NOTE]
 > User by default is a member of all his rooms and is listening to all messages from all rooms. User can only send messages to rooms he is a member of.
 
 Mobile App:
+
 ![mobile app demo](./demos/mobile_app_demo.gif)
 
 ## Table of Contents
@@ -21,15 +21,16 @@ Mobile App:
   - [TODO](#todo)
   - [Pre-requisites](#pre-requisites)
   - [Project Structure](#project-structure)
-  - [DB Schema](#db-schema)
   - [Running the web server](#running-the-web-server)
     - [Server Environment Variables](#server-environment-variables)
   - [Running the web client](#running-the-web-client)
     - [Web Client Command Line Arguments](#web-client-command-line-arguments)
+    - [Database Schema](#database-schema)
   - [Running the mobile app (Flutter)](#running-the-mobile-app-flutter)
     - [Prerequisites for mobile app](#prerequisites-for-mobile-app)
     - [Prerequisites for Running on iOS](#prerequisites-for-running-on-ios)
   - [Credits](#credits)
+  - [Contributing](#contributing)
   - [License](#license)
 
 ## Motivation
@@ -49,6 +50,7 @@ This project was created to learn how to create a websocket server in Go almost 
 - [ ] Provide more comprehensive demo of the project on the web and mobile side.
 - [ ] Build an Android native app and an iOS native app to connect to the websocket server.
 - [ ] Implement end-to-end encryption for the messages.
+- [ ] Users can delete and edit their chat messages.
 
 ## Pre-requisites
 
@@ -56,9 +58,11 @@ You need to have minimum understanding of the following:
 
 - Go
 - Websockets
-- Javascript, HTML, CSS (specifically Tailwind CSS)
-- Flutter, Dart (for the mobile app side)
+- Javascript, HTML, CSS (specifically Tailwind CSS) _optional_
+- Flutter, Dart (for the mobile app side) _optional_
 - PostgreSQL (for the database)
+- Goose for database migrations
+- Docker Compose (for running the PostgreSQL database) _optional_
 
 ## Project Structure
 
@@ -72,11 +76,6 @@ You need to have minimum understanding of the following:
 - `flutter_app`: Contains the mobile app that connects to the websocket server.
 - `server`: Contains the websocket server written in Go.
 - `webclient`: Contains the web client that connects to the websocket server.
-
-## DB Schema
-
-You can find the database schema in the [db_schema.dbml](./server/db_schema.dbml) file. The schema is as follows:
-![spock db schema](./demos/spock_db_schema.png)
 
 ## Running the web server
 
@@ -109,6 +108,21 @@ You can set the following environment variables to configure the server:
 
 > [!TIP]
 > Checkout this [docker-compose.yml](./server/docker-compose.yml) file to see how to run a PostgreSQL database locally in a docker container for development.
+
+### Database Schema
+
+You can find the database schema in the [db_schema.dbml](./server/db_schema.dbml) file. The schema is as follows:
+![spock db schema](./demos/spock_db_schema.png)
+
+The SQL migration files can be found in the [migrations](./server/migrations) folder. The migrations are written in SQL and are managed by [Goose](https://github.com/pressly/goose) so you need to have Goose installed on your machine to run the migrations.
+
+```bash
+# clone the repository first
+cd server
+go mod tidy # to install the dependencies
+go get -u github.com/pressly/goose/cmd/goose # to install goose, or use `brew install goose` on macOS
+goose -dir ./migrations postgres "YOUR_POSTGRESQL_URL" up # to run the migrations
+```
 
 ## Running the web client
 
@@ -162,18 +176,23 @@ The mobile app is a simple Flutter application that connects to the websocket se
 
 ## Credits
 
-- [Star Trek](https://www.startrek.com/) for the the amazing series (_except for Star Trek: Discovery we do not talk about it_).
-- [Gorilla Websocket](https://github.com/gorilla/websocket) for the websocket server.
-- [Fiber](https://github.com/gofiber/fiber) for the web server.
+- [Star Trek](https://www.startrek.com/) for the the amazing series (_except for Discovery we do not talk about that_).
+- [gorilla/websocket](https://github.com/gorilla/websocket) for the websocket server.
+- [gofiber/fiber](https://github.com/gofiber/fiber) for the web server.
 - [Tailwind CSS](https://tailwindcss.com/) for the web client.
 - [Claude.ai](https://claude.ai/) for helping me building the web client.
 - [PostgreSQL](https://www.postgresql.org/) for the database.
+- [pressly/goose](https://github.com/pressly/goose) for the database migrations.
 - [dbdiagram.io](https://dbdiagram.io/) for the database schema.
 - [Docker Compose](https://docs.docker.com/compose/) for the orchestration.
 - [Flutter](https://flutter.dev/) for the mobile app.
 - [Dicebear](https://www.dicebear.com/) for the avatars.
 - [lorenzodonini/ocpp-go](https://github.com/lorenzodonini/ocpp-go) for giving me the idea to build a websocket server, and frankly, some code snippets.
 - [web_socket_client](https://pub.dev/packages/web_socket_client) for giving me inspiration on how to connect to a websocket server in Flutter.
+
+## Contributing
+
+If you have any suggestions, improvements, or issues, feel free to open an issue or a pull request. I am always open to new ideas and improvements.
 
 ## License
 
